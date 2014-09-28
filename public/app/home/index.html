@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<script src="home.js"></script>
+
+<template id="home/home.tpl.html">
+  <div layout="vertical" flex layout-fill>
+    <material-toolbar class="material-theme-green" ui-view="toolbar">
+    
+      <h2 class="material-toolbar-tools">
+        <i class="fa fa-bars" ng-click="toggleMenu()"></i>
+        <dragon-avatar profile="currentUser.profile"></dragon-avatar>
+      </h2>
+      
+    </material-toolbar>
+    
+    <div layout="horizontal" flex>
+    
+      <material-sidenav class="material-sidenav-left material-whiteframe-z2" component-id="menu" ui-view="menu">
+  
+        <material-toolbar class="material-theme-indigo">
+          <h1 class="material-toolbar-tools">Sidenav Left</h1>
+        </material-toolbar>
+        <material-content class="material-content-padding" ng-controller="LeftCtrl">
+          
+        </material-content>
+    
+      </material-sidenav>
+      
+      <material-content ui-view="main" flex>
+        <p>Main Content</p>
+      </material-content>
+    </div>
+  </div>
+</template>

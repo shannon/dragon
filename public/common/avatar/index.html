@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<script type="text/javascript">
+  angular.module('dragon.avatar', [])
+  
+  .directive('dragonAvatar', function(){
+    return {
+      restrict: 'E',
+      scope: {
+        profile: '='
+      },
+      link: function(scope, elem, attrs){
+        console.log('test');
+      },
+      templateUrl: 'avatar.tpl.html'
+    };
+  })
+  
+  ;
+</script>
+<style>
+  dragon-avatar .image {
+    display: inline-block;
+    width: 30px;
+  	height: 30px;
+  	border-radius: 100%;
+  	-webkit-border-radius: 100%;
+  	-moz-border-radius: 100%;
+  }
+</style>
+
+<template id="avatar.tpl.html">
+  <span class="image" ng-style="{ background: 'url(' + profile.picture + ') no-repeat center/cover' }"></span>
+</template>
