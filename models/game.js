@@ -6,9 +6,10 @@ var mongoose    = require('mongoose')
 ;
 
 var gameSchema = new Schema({
-  players:  [ { type: ObjectId, ref: 'User' } ],
-  
-  generals: { },
+  players:  [ {
+    user:     { type: ObjectId, ref: 'User' },
+    general:  { type: Number }
+  } ],
   
   moves:    [ {
     _id:      false,
@@ -33,7 +34,7 @@ gameSchema.virtuals('turn').get(function(){
 
 gameSchema.virtuals('ready').get(function(){
   return this.players.every(function(player){
-    return !!player.general;
+    return player.general !== undefined;
   });
 });
 
