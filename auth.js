@@ -12,7 +12,7 @@ const koa             = require('koa')
 passport.use(new GoogleStrategy({
     clientID:     process.env.OAUTH_GOOGLE_ID,
     clientSecret: process.env.OAUTH_GOOGLE_SECRET,
-    callbackURL:  'https://' + process.env.HOSTNAME +'/auth/google/callback'
+    callbackURL:  process.env.OAUTH_RETURN +'/auth/google/callback'
   },
   function(accessToken, refreshToken, profile, done) {
     User.signIn('google', profile.id , profile.displayName, profile.emails[0].value, profile._json.picture).then(function(user){

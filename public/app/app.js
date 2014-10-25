@@ -4,7 +4,7 @@ angular.module( 'dragon', [
   'dragon.welcome',
   'dragon.home',
   'dragon.avatar',
-  
+  'dragon.board',
   'ngAnimate',
   'ngMaterial',
   'templateImport',
@@ -12,22 +12,22 @@ angular.module( 'dragon', [
 ])
 
 .run(function($rootScope, $state, $location) {
-  $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams, fromState, fromParams){
-    if($state.is('app')){
-      $state.go('app.home');
-    }
-  });
-  $rootScope.$on('$stateChangeError', function(event, toState, toParams, fromState, fromParams, error) {
-    if(error.status === 401){
-      $state.go('app.welcome');
-    } else if(error.status === 404) {
-      $state.go('app.error.404');
-    } else {
-      console.log('Unknown stateChangeError', toState, fromState, error);
-      $state.go('app.error', { status: error.status, error: error.data });
-    }
-    event.preventDefault();
-  });
+  // $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams, fromState, fromParams){
+  //   if($state.is('app')){
+  //     $state.go('app.home');
+  //   }
+  // });
+  // $rootScope.$on('$stateChangeError', function(event, toState, toParams, fromState, fromParams, error) {
+  //   if(error.status === 401){
+  //     $state.go('app.home');
+  //   } else if(error.status === 404) {
+  //     $state.go('app.error.404');
+  //   } else {
+  //     console.log('Unknown stateChangeError', toState, fromState, error);
+  //     $state.go('app.error', { status: error.status, error: error.data });
+  //   }
+  //   event.preventDefault();
+  // });
 })
 
 .config(function($stateProvider, $urlRouterProvider, $locationProvider){
@@ -42,8 +42,8 @@ angular.module( 'dragon', [
   
 })
 
-.controller("DragonCtrl", function(){
-  
+.controller("DragonCtrl", function($scope){
+  $scope.board = new dragon.Board(16);
 })
 
 ;

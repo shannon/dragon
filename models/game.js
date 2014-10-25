@@ -27,12 +27,12 @@ var gameSchema = new Schema({
   }
 });
 
-gameSchema.virtuals('turn').get(function(){
+gameSchema.virtual('turn').get(function(){
   var player = this.player[this.moves.length % this.players.length];
   return player._id || player;
 });
 
-gameSchema.virtuals('ready').get(function(){
+gameSchema.virtual('ready').get(function(){
   return this.players.every(function(player){
     return player.general !== undefined;
   });

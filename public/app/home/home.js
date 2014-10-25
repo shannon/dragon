@@ -15,17 +15,18 @@ angular.module('dragon.home', [
   });
 })
 
-.controller('HomeCtrl', function($scope, currentUser, $materialSidenav) {
+.controller('HomeCtrl', function($scope, currentUser, $mdSidenav) {
   $scope.currentUser = currentUser;
+  $scope.board = new dragon.Board(16);
   
   $scope.toggleMenu = function() {
-    $materialSidenav('menu').toggle();
+    $mdSidenav('menu').toggle();
   };
 })
 
-.controller('LeftCtrl', function($scope, $timeout, $materialSidenav) {
+.controller('LeftCtrl', function($scope, $timeout, $mdSidenav) {
   $scope.close = function() {
-    $materialSidenav('menu').close();
+    $mdSidenav('menu').close();
   };
 })
 

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<script type="text/javascript">
+  angular.module('dragon.board', ['ngMaterial'])
+  
+  .directive('dragonBoard', function(){
+    return {
+      restrict: 'E',
+      scope: {
+        board: '='
+      },
+      link: function(scope, elem, attrs){
+        var selectedPiece;
+        
+        scope.selectSpace = function(space){
+          //this stuff is temporary for testing
+          if(space.highlight){
+            var piece = scope.board.movePiece(selectedPiece, space.highlight.dir, space.highlight.steps);
+          } else {
+            var piece = space.occupied || scope.board.addPiece({
+              x: space.x,
+              y: space.y,
+              dirs: { n: true, e: true, s: true, w: true },
+              //dirs: { ne: true, nw: true, se: true, sw: true },
+              range: 3,
+              size: 1,
+              links: ['n', 'w'],//, 'n', 'n'],
+              //links: ['ne', 'ne']
+            });
+          }
+          
+          if(piece){
+              
+            scope.board.spaces.forEach(function(space){
+              delete space.highlight;
+            });
+            
+            var moves = piece.validMoves();
+            for(var dir in moves){
+              for(var s = 0; s < moves[dir]; s ++){
+                var space = piece.space.adjacent(dir, (s + 1) * piece.size);
+                space.area(piece.size).forEach(function(_space){
+                  _space.highlight = { dir: dir, steps: s + 1 };
+                });
+              }
+            }
+          }
+          
+          selectedPiece = piece;
+        }
+      },
+      templateUrl: 'board.tpl.html'
+    };
+  })
+  
+  .directive('dragonBoardPiece', function(){
+    return {
+      restrict: 'E',
+      scope: {
+        piece: '='
+      },
+      link: function(scope, elem, attrs){
+        scope.links = scope.piece.links.slice();
+        
+        scope.top = function(l){
+          return scope.links.slice(0, l + 1).reduce(function(top, link){
+            if(link.indexOf('n') !== -1) { return top - 1; }
+            if(link.indexOf('s') !== -1) { return top + 1; }
+            return top;
+          }, 0) * 100;
+        }
+        
+        scope.left = function(l){
+          return scope.links.slice(0, l + 1).reduce(function(left, link){
+            if(link.indexOf('w') !== -1) { return left - 1; }
+            if(link.indexOf('e') !== -1) { return left + 1; }
+            return left;
+          }, 0) * 100;
+        }
+      },
+      templateUrl: 'board-piece.tpl.html'
+    };
+  })
+  
+  ;
+</script>
+<style>
+  dragon-board {
+    width: 100%;
+    padding-bottom: 100%;
+    position: relative;
+    display: block;
+    border: 10px solid #e3e3e3;
+    border-radius: 10px;
+  }
+  
+  dragon-board > div {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+  
+  dragon-board .dragon-row:nth-child(odd) .dragon-space:nth-child(odd) {
+    background-color: #f3f3f3;
+  }
+  dragon-board .dragon-row:nth-child(even) .dragon-space:nth-child(even) {
+    background-color: #f3f3f3;
+  }
+  
+  dragon-board .dragon-space {
+    position: relative;
+  }
+  
+  dragon-board dragon-board-piece {
+    position: absolute;
+    display: block;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 999;
+    
+  }
+  
+  dragon-board dragon-board-piece svg{
+    display: block;
+  }
+  
+  dragon-board .dragon-space.highlight:after {
+    content: ' ';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    background-color: rgba(0, 255, 0, 0.25);
+  }
+  
+  dragon-board-piece .link {
+    position: absolute;
+    pointer-events: none;
+  }
+  
+  dragon-board-piece .size-1 {
+    width: 100%;
+    height: 100%;
+  }
+  
+  dragon-board-piece .size-2 {
+    width: 200%;
+    height: 200%;
+  }
+  
+</style>
+
+<template id="board.tpl.html">
+  <div layout="vertical">
+    <div layout="horizontal" ng-repeat="row in board.rows track by $index" class="dragon-row" flex>
+      <div ng-repeat="space in row" class="dragon-space" flex ng-click="selectSpace(space)"
+        ng-class="{ highlight: !!space.highlight }">
+        <dragon-board-piece ng-if="space.piece" piece="space.piece"></dragon-board-piece>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="board-piece.tpl.html">
+  <div class="size-{{::piece.size}} link"
+    ng-repeat="link in links track by $index" style="transform: translate({{::left($index)}}%, {{::top($index)}}%);">
+    <svg height="100%" width="100%" viewbox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="green" />
+    </svg>
+  </div>
+  
+  <div class="size-{{::piece.size}}">
+    <svg height="100%" width="100%" viewbox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="green" />
+    </svg>
+  </div>
+</template>

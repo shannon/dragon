@@ -12,7 +12,6 @@ const koa         = require('koa')
     , auth        = require('./auth')
     , api         = require('./api')
     , app         = koa()
-    
 ;
 
 mongoose.connect('mongodb://' + (process.env.MONGO_HOST || 'mongo') + '/' + (process.env.MONGO_DB || 'dragon'), function(err) {
@@ -48,6 +47,10 @@ mongoose.connect('mongodb://' + (process.env.MONGO_HOST || 'mongo') + '/' + (pro
       this.body = fs.createReadStream(__dirname + '/public/index.html');
       this.status = 200;
     }
+  });
+  
+  app.get('/dragon.js', function *(next){
+    this.body = fs.readFileSync(__dirname + '/dragon.js');
   });
   
   app.use(serve(__dirname + '/public'));
