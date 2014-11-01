@@ -7,6 +7,8 @@ angular.module( 'dragon', [
   'dragon.board',
   'ngAnimate',
   'ngMaterial',
+  'ngTouch',
+  'hmTouchEvents',
   'templateImport',
   'ui.router'
 ])
@@ -43,7 +45,7 @@ angular.module( 'dragon', [
 })
 
 .controller("DragonCtrl", function($scope){
-  $scope.board = new dragon.Board(16);
+  $scope.board = new dragon.default();
 })
 
 ;

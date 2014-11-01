@@ -5,14 +5,18 @@
 <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular-animate.min.js"></script>
 <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular-resource.min.js"></script>
 <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular-aria.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.0/angular-touch.min.js"></script>
 
 <script src="/bower_components/hammerjs/hammer.js"></script>
 <script src="/bower_components/angular-material/angular-material.js"></script>
 
 <script src="/lib/angular-import.js"></script>
 <script src="/lib/angular-ui-router.min.js"></script>
+<script src="/lib/angular.hammer.min.js"></script>
+<script src="/lib/screenfull.min.js"></script>
 
 <link href="/bower_components/angular-material/angular-material.css" rel="stylesheet">
+<link href="/lib/material-design-iconic-font/css/material-design-iconic-font.min.css" rel="stylesheet">
 <link href="//netdna.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.css" rel="stylesheet">
 
 <link href="/common/api/" rel="import">
@@ -38,9 +42,7 @@
   }
 </style>
 <template id="app.tpl.html">
-  <md-content ui-view="main" layout="horizontal" layout-fill layout-align="center center">
-    <div style="max-width: 600px" flex>
-      <dragon-board board="board" ></dragon-board>
-    </div>
-  </md-content>
+  <div ui-view="main" style="height: 100%;">
+    <dragon-board board="board"></dragon-board>
+  </div>
 </template>

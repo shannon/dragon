@@ -1,54 +1,184 @@
 <!DOCTYPE html>
 <script type="text/javascript">
-  angular.module('dragon.board', ['ngMaterial'])
+  angular.module('dragon.board', ['ngMaterial', 'hmTouchEvents'])
   
-  .directive('dragonBoard', function(){
+  .directive('dragonBoard', function($timeout){
     return {
       restrict: 'E',
       scope: {
         board: '='
       },
       link: function(scope, elem, attrs){
-        var selectedPiece;
+        scope.drag = false;
+      
+        scope.screenfull = screenfull;
         
-        scope.selectSpace = function(space){
-          //this stuff is temporary for testing
-          if(space.highlight){
-            var piece = scope.board.movePiece(selectedPiece, space.highlight.dir, space.highlight.steps);
-          } else {
-            var piece = space.occupied || scope.board.addPiece({
-              x: space.x,
-              y: space.y,
-              dirs: { n: true, e: true, s: true, w: true },
-              //dirs: { ne: true, nw: true, se: true, sw: true },
-              range: 3,
-              size: 1,
-              links: ['n', 'w'],//, 'n', 'n'],
-              //links: ['ne', 'ne']
-            });
+        scope.fullscreen = function(){
+          if(screenfull.enabled) {
+            screenfull.toggle(elem[0]);
           }
+        };
+        
+        scope.accept = function(){
+          scope.selectedPiece.set();
+          scope.selectedPiece = null;
+          scope.cancel();
+        };
+        
+        scope.cancel = function(){
+          scope.board.spaces.forEach(function(space){
+            delete space.highlight;
+          });
           
-          if(piece){
-              
-            scope.board.spaces.forEach(function(space){
-              delete space.highlight;
+          if(scope.selectedPiece && scope.selectedPiece.origin){
+            scope.selectedPiece.reset();
+            scope.refresh(scope.selectedPiece);
+          }
+          scope.selectedPiece = null;
+          scope.move = null;
+        };
+        
+        scope.select = function(piece){
+          if(scope.selectedPiece !== piece){
+            scope.cancel();
+            scope.selectedPiece = piece;
+            scope.selectedPiece.space.area(scope.selectedPiece.size).forEach(function(_space){
+              _space.highlight = { steps: 0 };
             });
             
-            var moves = piece.validMoves();
-            for(var dir in moves){
-              for(var s = 0; s < moves[dir]; s ++){
-                var space = piece.space.adjacent(dir, (s + 1) * piece.size);
-                space.area(piece.size).forEach(function(_space){
+            var origin = scope.selectedPiece.lift();
+            
+            for(var dir in origin.moves){
+              for(var s = 0; s < origin.moves[dir]; s ++){
+                var space = scope.selectedPiece.space.adjacent(dir, (s + 1) * scope.selectedPiece.size);
+                space.area(scope.selectedPiece.size).forEach(function(_space){
                   _space.highlight = { dir: dir, steps: s + 1 };
                 });
               }
             }
           }
-          
-          selectedPiece = piece;
         }
+        
+        scope.refresh = function(piece){
+          var space = piece.space;
+            
+          scope.$broadcast('clear', piece);
+          scope.$broadcast('piece', piece);
+          
+          piece.links.forEach(function(dir){
+            space = space.adjacent(dir, piece.size);
+            scope.$broadcast('link', { space: space, dir: dir, piece: piece });
+          });
+        };
+        
+        scope.$on('cancel', function(event){
+          if(event.targetScope !== event.currentScope){
+            scope.cancel();
+          }
+        });
+          
+        $timeout(function(){
+          scope.board.pieces.forEach(scope.refresh);
+        });
+        
+        (function(){ //input events
+          var cache   = {};
+          var $window = angular.element(window);
+        
+          function getSpace(e){
+            var pos   = e.touches && e.touches[0] || e;
+            var elem  = document.elementFromPoint(pos.clientX, pos.clientY);
+            return  (angular.element(elem).scope() || {}).space;
+          }
+          
+          function getClosest(e, prop){
+            var space = getSpace(e);
+            if(!space) { return; }
+            var key = space.x + ':' + space.y;
+            var min = Infinity;
+            var c   = cache[key];
+            if(!cache[key]){
+              scope.board.spaces.forEach(function(_space){
+                if(_space.highlight){
+                  var xd = _space.x - space.x;
+                	var yd = _space.y - space.y;
+                	var d = Math.sqrt(xd * xd + yd * yd);
+                	if(d < min){
+                	  min = d;
+                	  cache[key] = _space;
+                	}
+                }
+              });
+            }
+            return cache[key];
+          }
+          
+          $window.bind('touchstart mousedown', function(e){
+            var space = getSpace(e);
+            scope.select((space && space.occupied) || scope.selectedPiece);
+            scope.drag = true;
+            cache = {};
+            scope.$apply();
+          });
+          
+          $window.bind('touchend touchcancel mouseup', function(e){
+            scope.drag = false;
+            e.preventDefault();
+            e.stopPropagation();
+            scope.$apply();
+          });
+          
+          
+          $window.bind('touchmove mousemove', function(e){
+            if(scope.drag){
+              var space = getClosest(e);
+              
+              if(space){
+                scope.move = space.highlight.steps && { dir: space.highlight.dir, steps: space.highlight.steps };
+                scope.selectedPiece.move(space.highlight.dir, space.highlight.steps);
+                scope.refresh(scope.selectedPiece);
+                e.preventDefault();
+                e.stopPropagation();
+                scope.$apply();
+              }
+            }
+          });
+        })();
       },
       templateUrl: 'board.tpl.html'
+    };
+  })
+  
+  .directive('dragonBoardSpace', function(){
+    return {
+      restrict: 'E',
+      scope: {
+        space: '='
+      },
+      link: function(scope, elem, attrs){
+        
+        scope.$on('clear', function(e, piece){
+          if(scope.piece === piece){
+            scope.piece = null;
+          }
+          if(scope.link && scope.link.piece === piece){
+            scope.link = null;
+          }
+        });
+        
+        scope.$on('piece', function(e, piece){
+          if(scope.space === piece.space){
+            scope.piece = piece;
+          }
+        });
+        
+        scope.$on('link', function(e, link){
+          if(scope.space === link.space){
+            scope.link = link;
+          }
+        });
+      },
+      templateUrl: 'board-space.tpl.html'
     };
   })
   
@@ -59,25 +189,59 @@
         piece: '='
       },
       link: function(scope, elem, attrs){
-        scope.links = scope.piece.links.slice();
-        
-        scope.top = function(l){
-          return scope.links.slice(0, l + 1).reduce(function(top, link){
-            if(link.indexOf('n') !== -1) { return top - 1; }
-            if(link.indexOf('s') !== -1) { return top + 1; }
-            return top;
-          }, 0) * 100;
-        }
-        
-        scope.left = function(l){
-          return scope.links.slice(0, l + 1).reduce(function(left, link){
-            if(link.indexOf('w') !== -1) { return left - 1; }
-            if(link.indexOf('e') !== -1) { return left + 1; }
-            return left;
-          }, 0) * 100;
-        }
+        scope.star = 'M10,50 C25,50 50,25 50,10 C50,25 75,50 90,50 C75,50 50,75 50,90 C50,75 25,50 10,50 Z';
       },
       templateUrl: 'board-piece.tpl.html'
+    };
+  })
+  
+  .directive('dragonBoardLink', function(){
+    return {
+      restrict: 'E',
+      scope: {
+        link: '='
+      },
+      link: function(scope, elem, attrs){
+        var a = 90;
+        scope.rotation = {
+          n:  a + 0,
+          ne: a + 45,
+          e:  a + 90,
+          se: a + 135,
+          s:  a + 180,
+          sw: a + 225,
+          w:  a + 270,
+          nw: a + 315
+        }
+        
+        var curveLong   = 'M0,15 C25,40 75,40 100,15 L100,85 C75,60 25,60 0,85 Z';
+        var curveShort  = 'M25,15 C45,35 55,35 75,15 L75,85 C55,65 45,65 25,85 Z';
+        
+        scope.translation = {
+          n:  '0%, 50%',
+          ne: '-50%, 50%',
+          e:  '-50%, 0%',
+          se: '-50%, -50%',
+          s:  '0%, -50%',
+          sw: '50%, -50%',
+          w:  '50%, 0%',
+          nw: '50%, 50%'
+        }
+        
+        scope.curve = {
+          n:  curveShort,
+          ne: curveLong,
+          e:  curveShort,
+          se: curveLong,
+          s:  curveShort,
+          sw: curveLong,
+          w:  curveShort,
+          nw: curveLong
+        };
+        
+        scope.triangle = '90,50 30.000000000000007,84.64101615137756 29.999999999999982,15.358983848622465';
+      },
+      templateUrl: 'board-link.tpl.html'
     };
   })
   
@@ -86,14 +250,31 @@
 <style>
   dragon-board {
     width: 100%;
-    padding-bottom: 100%;
-    position: relative;
+    height: 100%;
     display: block;
+  }
+  
+  dragon-board .board-bar{
+    width: 100%;
+    max-width: 600px;
+    padding: 5px;
+    height: 70px;
+  }
+  
+  dragon-board .field {
     border: 10px solid #e3e3e3;
     border-radius: 10px;
+    width: 100%;
+    max-width: 600px;
+    z-index: 0;
   }
   
-  dragon-board > div {
+  dragon-board .field > div {
+    position: relative;
+    padding-bottom: 100%;
+  }
+  
+  dragon-board .field > div > div {
     position: absolute;
     top: 0;
     right: 0;
@@ -101,81 +282,128 @@
     left: 0;
   }
   
-  dragon-board .dragon-row:nth-child(odd) .dragon-space:nth-child(odd) {
+  dragon-board .dragon-row:nth-child(odd) dragon-board-space:nth-child(odd) {
     background-color: #f3f3f3;
   }
-  dragon-board .dragon-row:nth-child(even) .dragon-space:nth-child(even) {
+  dragon-board .dragon-row:nth-child(even) dragon-board-space:nth-child(even) {
     background-color: #f3f3f3;
   }
   
-  dragon-board .dragon-space {
+  dragon-board dragon-board-space {
     position: relative;
   }
   
-  dragon-board dragon-board-piece {
+  dragon-board dragon-board-piece, dragon-board dragon-board-link {
     position: absolute;
     display: block;
     top: 0;
     right: 0;
     left: 0;
     bottom: 0;
-    z-index: 999;
-    
   }
   
-  dragon-board dragon-board-piece svg{
+  dragon-board dragon-board-piece svg, dragon-board dragon-board-link svg {
     display: block;
+    position: absolute;
+    z-index: 2;
+    overflow: visible;
   }
   
-  dragon-board .dragon-space.highlight:after {
+  dragon-board dragon-board-space.highlight:after {
     content: ' ';
     position: absolute;
     top: 0;
     bottom: 0;
     right: 0;
     left: 0;
-    background-color: rgba(0, 255, 0, 0.25);
+    background-color: #03a9f4;
+    opacity: 0.25;
   }
   
-  dragon-board-piece .link {
-    position: absolute;
+  dragon-board dragon-board-piece, dragon-board dragon-board-link {
     pointer-events: none;
   }
   
-  dragon-board-piece .size-1 {
-    width: 100%;
-    height: 100%;
+  dragon-board .player-1 .primary {
+    fill: #03a9f4;
   }
   
-  dragon-board-piece .size-2 {
-    width: 200%;
-    height: 200%;
+  dragon-board .player-1 .secondary {
+    fill: #0288d1;
+  }
+  
+  dragon-board .player-2 .primary {
+    fill: #607d8b;
+  }
+  
+  dragon-board .player-2 .secondary {
+    fill: #455a64;
   }
   
 </style>
 
 <template id="board.tpl.html">
-  <div layout="vertical">
-    <div layout="horizontal" ng-repeat="row in board.rows track by $index" class="dragon-row" flex>
-      <div ng-repeat="space in row" class="dragon-space" flex ng-click="selectSpace(space)"
-        ng-class="{ highlight: !!space.highlight }">
-        <dragon-board-piece ng-if="space.piece" piece="space.piece"></dragon-board-piece>
+  <div layout="vertical" layout-fill layout-align="center center">
+  
+    <div class="board-bar">
+      <md-button class="md-fab md-primary" aria-label="Accept move" ng-show="move" ng-click="accept()">
+        <i class="md md-check md-2x" style="transform: rotate(180deg)"></i>
+      </md-button>
+      <md-button class="md-fab" aria-label="Cancel move" ng-show="move" ng-click="cancel()">
+        <i class="md md-close md-2x"></i>
+      </md-button>
+      <md-button class="md-fab" aria-label="Full Screen" ng-click="fullscreen()" style="float: right;">
+        <i class="md md-fullscreen md-2x"
+          ng-class="{ 'md-fullscreen': !screenfull.isFullscreen, 'md-fullscreen-exit': screenfull.isFullscreen}"></i>
+      </md-button>
+    </div>
+    
+    <div class="field">
+      <div>
+        <div layout="vertical">
+          <div layout="horizontal" ng-repeat="row in board.rows track by $index" class="dragon-row" flex>
+            <dragon-board-space ng-repeat="space in row track by $index" space="space" flex
+              ng-class="{ highlight: !!space.highlight }">
+            </dragon-board-space>
+          </div>
+        </div>
       </div>
     </div>
+    
+    <div class="board-bar" style="text-align: right">
+      <md-button class="md-fab" aria-label="Cancel move" ng-show="move" ng-click="cancel()">
+        <i class="md md-close md-2x"></i>
+      </md-button>
+      <md-button class="md-fab md-primary" aria-label="Accept move" ng-show="move" ng-click="accept()">
+        <i class="md md-check md-2x"></i>
+      </md-button>
+    </div>
+    
   </div>
 </template>
 
+<template id="board-space.tpl.html">
+  <dragon-board-piece ng-if="piece" piece="piece"></dragon-board-piece>
+  <dragon-board-link ng-if="link" link="link"></dragon-board-link>
+</template>
+
 <template id="board-piece.tpl.html">
-  <div class="size-{{::piece.size}} link"
-    ng-repeat="link in links track by $index" style="transform: translate({{::left($index)}}%, {{::top($index)}}%);">
-    <svg height="100%" width="100%" viewbox="0 0 100 100">
-      <circle cx="50" cy="50" r="45" fill="green" />
-    </svg>
-  </div>
+  <svg ng-attr-height="{{::piece.size * 100}}%" ng-attr-width="{{::piece.size * 100}}%" viewbox="0 0 100 100"
+    class="player-{{piece.player}}">
+    <circle cx="50" cy="50" r="45" class="primary" />
+    <circle cx="50" cy="50" r="30" class="secondary" ng-if="piece.type !== 0"/>
+    <path ng-attr-d="{{::star}}" class="secondary" ng-if="piece.type === 0" />
+  </svg>
+</template>
+
+<template id="board-link.tpl.html">
+  <svg ng-attr-height="{{::link.piece.size * 100}}%" ng-attr-width="{{::link.piece.size * 100}}%" viewbox="0 0 100 100"
+    class="player-{{link.piece.player}}">
+    <circle cx="50" cy="50" r="45" class="primary" />
+  </svg>
   
-  <div class="size-{{::piece.size}}">
-    <svg height="100%" width="100%" viewbox="0 0 100 100">
-      <circle cx="50" cy="50" r="45" fill="green" />
-    </svg>
-  </div>
+  <svg ng-attr-height="{{::link.piece.size * 100}}%" ng-attr-width="{{::link.piece.size * 100}}%" viewbox="0 0 100 100"
+    class="player-{{link.piece.player}}" style="z-index: 1; transform: translate({{translation[link.dir]}})" >
+    <path ng-attr-d="{{::curve[link.dir]}}" class="primary"  ng-attr-transform="rotate({{rotation[link.dir]}}, 50, 50)" />
+  </svg>
 </template>

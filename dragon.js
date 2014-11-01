@@ -1,6 +1,8 @@
 (function(exports){
   'use strict';
   
+  exports.version = '0.0.0';
+  
   var REVERSE = {
     n:  's',
     ne: 'sw',
@@ -28,7 +30,6 @@
       return search;
     };
     
-    this.piece = null;
     this.occupied = null;
   }
   
@@ -58,13 +59,17 @@
     var spaces = this.area(piece.size);
     
     return (spaces && spaces.every(function(space){
-      return (!space.occupied || piece.head(space.x, space.y));
+      return (!space.occupied || piece.head(space.x, space.y)
+              || (space.occupied.type === 0 && space.occupied.player !== piece.player));
     }) && spaces) || null;
   };
   
   Space.prototype.path = function(dir, piece){
-    var dest = this.adjacent(dir, piece.size);
-    if(!dest || !dest.scan(piece)) return null;
+    var dest;
+    for(var s = 0; s < piece.size; s++){
+      dest = this.adjacent(dir, s + 1);
+      if(!dest || !dest.scan(piece)) return null;
+    }
     
     if(piece.size == 1 && dir.length === 2){ //block diagonal cross links
       var parts = dir.split('');
@@ -135,75 +140,27 @@
   };
   
   Board.prototype.addPiece = function(piece){
-    var board   = this;
-    var space   = piece.space || this.space(piece.x, piece.y);
-    var spaces  = [space], link = space;
-    
-    piece = new Piece(space, piece);
-    
-    for(var l = 0; l < piece.links.length; l++){
-      link = link.adjacent(piece.links[l], piece.size);
-      if(!link) return null;
-      spaces.push(link);
+    if(!(piece instanceof Piece)){
+      piece = new Piece(this, this.space(piece.x, piece.y), piece);
     }
     
-    var occupied = spaces.reduce(function(valid, space){
-      return valid.concat(space.scan(piece) || []);
-    }, []);
-    
-    var valid = occupied.length === (piece.size * piece.size) * (1 + piece.links.length);
-    if(valid){
-      
-      piece.space.piece = piece;
-      
-      //we use occupied instead of piece for spaces that the piece overlaps into based on size
-      occupied.forEach(function(space){
-        space.occupied = piece;
-      });
-      
-      board.pieces.push(piece);
+    if(piece.set()){
+      this.pieces.push(piece);
+      return piece;
     }
     
-    return valid && piece;
+    return null;
   };
   
   Board.prototype.removePiece = function(piece){
-    this.spaces.forEach(function(space){
-      if(space.piece === piece){
-        space.piece = null;
-      }
-      if(space.occupied === piece){
-        space.occupied = null;
-      }
-    });
+    piece.lift();
     this.pieces.splice(this.pieces.indexOf(piece), 1);
   };
   
-  Board.prototype.movePiece = function(piece, dir, steps){
-    var dest = piece.space, s;
-    
-    for(s = 0; s < steps; s++){
-      dest = dest.path(dir, piece);
-      if(!dest) { return null }
-    }
-    
-    
-    this.removePiece(piece);
-    
-    piece.space = dest;
-    
-    if(piece.links.length){
-      for(s = 0; s < steps; s++){
-        piece.links.pop();
-        piece.links.unshift(REVERSE[dir]);
-      }
-    }
-    
-    return this.addPiece(piece);
-  };
-  
-  function Piece(space, opts){
+  function Piece(board, space, opts){
+    this.board    = board;
     this.space    = space;
+    this.player   = opts.player || 1;
     this.type     = opts.type   || 0;
     this.range    = opts.range  || 1;
     this.size     = opts.size   || 1;
@@ -211,7 +168,7 @@
     this.links    = (opts.links || []).slice(); //make a copy
   }
   
-  Piece.prototype.validMoves = function(){
+  Piece.prototype.moves = function(){
     var valid = {}, search;
     
     for(var dir in this.dirs){
@@ -234,7 +191,196 @@
     return dx >= 0 && dy >= 0 && dx < this.size && dy < this.size;
   };
   
+  Piece.prototype.set = function(){
+    var piece   = this;
+    var space   = piece.space;
+    var spaces  = [space], link = space;
+    
+    //scan space area and all link areas
+    for(var l = 0; l < piece.links.length; l++){
+      link = link.adjacent(piece.links[l], piece.size);
+      if(!link) return null;
+      spaces.push(link);
+    }
+    
+    var occupied = spaces.reduce(function(valid, space){
+      return valid.concat(space.scan(piece) || []);
+    }, []);
+    
+    var valid = occupied.length === (piece.size * piece.size) * (1 + piece.links.length);
+    if(valid){
+      
+      //we use occupied instead of piece for spaces that the piece overlaps into based on size
+      occupied.forEach(function(space){
+        space.occupied = piece;
+      });
+      
+      this.origin = null;
+    }
+    
+    return valid && piece;
+  };
   
+  Piece.prototype.lift = function(){
+    if(this.origin) { throw 'already lifted'; }
+    
+    this.origin = {
+      space: this.space,
+      links: this.links.slice(),
+      moves: this.moves()
+    };
+    
+    this.board.spaces.forEach(function(space){
+      if(space.occupied === this){
+        space.occupied = null;
+      }
+    }, this);
+    
+    return this.origin;
+  };
+  
+  Piece.prototype.reset = function(){
+    if(!this.origin) { throw 'can only reset lifted piece'; }
+    
+    this.space = this.origin.space;
+    this.links = this.origin.links.slice();
+    return this.set();
+  };
+  
+  Piece.prototype.move = function(dir, steps){
+    if(!this.origin) { return 'can only move lifted piece'; }
+    
+    var piece = this;
+    
+    piece.space = piece.origin.space;
+    piece.links = piece.origin.links.slice();
+    
+    var moves = piece.origin.moves;
+    var dest  = piece.space, s;
+    
+    if(steps){
+        if(moves && moves[dir] >= steps){
+        for(s = 0; s < steps; s++){
+          dest = dest.path(dir, piece);
+          if(!dest) { return null }
+        }
+        
+        piece.space = dest;
+        
+        if(piece.links.length){
+          for(s = 0; s < steps; s++){
+            piece.links.pop();
+            piece.links.unshift(REVERSE[dir]);
+          }
+        }
+      } else {
+        throw 'invalid move';
+      }
+    }
+    
+    return piece;
+  };
   
   exports.Board = Board;
+  exports.REVERSE = REVERSE;
+  
+  exports.default = function(){
+    var board = new Board(12);
+    
+    function general(opts){
+      return {
+        x: opts.x || 0,
+        y: opts.y || 0,
+        dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
+        range: 1,
+        size: 1,
+        links: [],
+        player: opts.player || 1,
+        type: 0
+      };
+    }
+    
+    function titan(opts){
+      return {
+        x: opts.x || 0,
+        y: opts.y || 0,
+        dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
+        range: 1,
+        size: 2,
+        links: [],
+        player: opts.player || 1,
+        type: 1
+      };
+    }
+    
+    function ranger(opts){
+      return {
+        x: opts.x || 0,
+        y: opts.y || 0,
+        dirs: { n: true, e: true, s: true, w: true },
+        range: 12,
+        size: 1,
+        links:  opts.links || ['n'],
+        player: opts.player || 1,
+        type: 2
+      };
+    }
+    
+    function sidewinder(opts){
+      return {
+        x: opts.x || 0,
+        y: opts.y || 0,
+        dirs: { ne: true, nw: true, se: true, sw: true },
+        range: 2,
+        size: 1,
+        links:  opts.links || ['ne', 'ne'],
+        player: opts.player || 1,
+        type: 3
+      };
+    }
+    
+    function grand(opts){
+      return {
+        x: opts.x || 0,
+        y: opts.y || 0,
+        dirs: { n: true, e: true, s: true, w: true },
+        range: 4,
+        size: 1,
+        links:  opts.links || ['n', 'n', 'n', 'n'],
+        player: opts.player || 1,
+        type: 4
+      };
+    }
+    
+    
+    //generals
+    board.addPiece(general({ x: 5, y: 0,  player: 1 }));
+    board.addPiece(general({ x: 6, y: 11, player: 2 }));
+    
+    //titans
+    board.addPiece(titan({ x: 2, y: 0,  player: 1 }));
+    board.addPiece(titan({ x: 8, y: 0,  player: 1 }));
+    board.addPiece(titan({ x: 2, y: 10, player: 2 }));
+    board.addPiece(titan({ x: 8, y: 10, player: 2 }));
+    
+    //rangers
+    board.addPiece(ranger({ x: 1,   y: 1,  player: 1, links: ['n'] }));
+    board.addPiece(ranger({ x: 10,  y: 1,  player: 1, links: ['n'] }));
+    board.addPiece(ranger({ x: 1,   y: 10, player: 2, links: ['s'] }));
+    board.addPiece(ranger({ x: 10,  y: 10, player: 2, links: ['s'] }));
+    
+    //sidewinders
+    board.addPiece(sidewinder({ x: 4, y: 2, player: 1, links: ['ne', 'nw'] }));
+    board.addPiece(sidewinder({ x: 7, y: 2, player: 1, links: ['nw', 'ne'] }));
+    board.addPiece(sidewinder({ x: 4, y: 9, player: 2, links: ['se', 'sw'] }));
+    board.addPiece(sidewinder({ x: 7, y: 9, player: 2, links: ['sw', 'se'] }));
+    
+    //grands
+    board.addPiece(grand({ x: 2, y: 2, player: 1, links: ['w', 'w', 'n', 'n'] }));
+    board.addPiece(grand({ x: 9, y: 2, player: 1, links: ['e', 'e', 'n', 'n'] }));
+    board.addPiece(grand({ x: 2, y: 9, player: 2, links: ['w', 'w', 's', 's'] }));
+    board.addPiece(grand({ x: 9, y: 9, player: 2, links: ['e', 'e', 's', 's'] }));
+    
+    return board;
+  };
 })(typeof exports === 'undefined' ? this.dragon = {} : exports);
