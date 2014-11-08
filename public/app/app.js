@@ -45,7 +45,7 @@ angular.module( 'dragon', [
 })
 
 .controller("DragonCtrl", function($scope){
-  $scope.board = new dragon.default();
+  $scope.game = new dragon.Game([1, 2]);
 })
 
 ;

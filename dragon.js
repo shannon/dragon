@@ -1,7 +1,7 @@
 (function(exports){
   'use strict';
   
-  exports.version = '0.0.0';
+  exports.version = '0.0.1';
   
   var REVERSE = {
     n:  's',
@@ -13,6 +13,83 @@
     w:  'e',
     nw: 'se'
   };
+  
+  function general(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
+      range: 1,
+      size: 1,
+      links: [],
+      player: opts.player || 1,
+      type: 0
+    };
+  }
+  
+  function assassin(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
+      range: 16,
+      size: 1,
+      player: opts.player || 1,
+      type: 1
+    };
+  }
+  
+  function titan(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
+      range: 1,
+      size: 2,
+      links: [],
+      player: opts.player || 1,
+      type: 2
+    };
+  }
+  
+  function ranger(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { n: true, e: true, s: true, w: true },
+      range: 12,
+      size: 1,
+      links:  opts.links || ['n'],
+      player: opts.player || 1,
+      type: 3
+    };
+  }
+  
+  function sidewinder(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { ne: true, nw: true, se: true, sw: true },
+      range: 2,
+      size: 1,
+      links:  opts.links || ['ne', 'ne'],
+      player: opts.player || 1,
+      type: 4
+    };
+  }
+  
+  function grand(opts){
+    return {
+      x: opts.x || 0,
+      y: opts.y || 0,
+      dirs: { n: true, e: true, s: true, w: true },
+      range: 4,
+      size: 1,
+      links:  opts.links || ['n', 'n', 'n', 'n'],
+      player: opts.player || 1,
+      type: 5
+    };
+  }
   
   /**
    * Initial board setup and linking references for convenience
@@ -81,13 +158,13 @@
     return dest;
   };
   
-  function Board(size){
-    var board   = this;
-    this.size   = size;
-    this.spaces = [];
-    this.rows   = [];
-    this.cols   = [];
-    this.pieces = [];
+  function Board(size, players){
+    var board     = this;
+    this.size     = size;
+    this.spaces   = [];
+    this.rows     = [];
+    this.cols     = [];
+    this.pieces   = [];
     
     for(var x = 0; x < size; x++){
       for(var y = 0; y < size; y++){
@@ -157,6 +234,49 @@
     this.pieces.splice(this.pieces.indexOf(piece), 1);
   };
   
+  Board.prototype.default = function(){
+    
+    this.pieces.forEach(function(piece){
+      if(!piece.origin) piece.lift();
+    });
+    
+    this.pieces.length = 0;
+    
+    //generals
+    this.addPiece(general({ x: 5, y: 1,  player: 1 }));
+    this.addPiece(general({ x: 6, y: 10, player: 2 }));
+    
+    //assassins
+    this.addPiece(assassin({ x: 6, y: 1,  player: 1 }));
+    this.addPiece(assassin({ x: 5, y: 10, player: 2 }));
+    
+    //titans
+    this.addPiece(titan({ x: 0,  y: 0,  player: 1 }));
+    this.addPiece(titan({ x: 10, y: 0,  player: 1 }));
+    this.addPiece(titan({ x: 0,  y: 10, player: 2 }));
+    this.addPiece(titan({ x: 10, y: 10, player: 2 }));
+    
+    //rangers
+    this.addPiece(ranger({ x: 4, y: 0,  player: 1, links: ['e'] }));
+    this.addPiece(ranger({ x: 7, y: 0,  player: 1, links: ['w'] }));
+    this.addPiece(ranger({ x: 4, y: 11, player: 2, links: ['e'] }));
+    this.addPiece(ranger({ x: 7, y: 11, player: 2, links: ['w'] }));
+    
+    //sidewinders
+    this.addPiece(sidewinder({ x: 5, y: 2, player: 1, links: ['nw', 'nw'] }));
+    this.addPiece(sidewinder({ x: 6, y: 2, player: 1, links: ['ne', 'ne'] }));
+    this.addPiece(sidewinder({ x: 5, y: 9, player: 2, links: ['sw', 'sw'] }));
+    this.addPiece(sidewinder({ x: 6, y: 9, player: 2, links: ['se', 'se'] }));
+    
+    //grands
+    this.addPiece(grand({ x: 4, y: 2, player: 1, links: ['w', 'n', 'w', 'n'] }));
+    this.addPiece(grand({ x: 7, y: 2, player: 1, links: ['e', 'n', 'e', 'n'] }));
+    this.addPiece(grand({ x: 4, y: 9, player: 2, links: ['w', 's', 'w', 's'] }));
+    this.addPiece(grand({ x: 7, y: 9, player: 2, links: ['e', 's', 'e', 's'] }));
+    
+    return this;
+  };
+  
   function Piece(board, space, opts){
     this.board    = board;
     this.space    = space;
@@ -170,12 +290,12 @@
   
   Piece.prototype.moves = function(){
     var valid = {}, search;
-    
     for(var dir in this.dirs){
       search = this.space;
+      if(!search) { break; }
       if(this.dirs[dir]){
         valid[dir] = 0;
-        for(var i = 0; i < this.range; i++){
+        for(var i = 0, l = this.range; i < l; i++){
           search = search.path(dir, this);
           if(!search) { break; }
           valid[dir] = i + 1;
@@ -212,6 +332,9 @@
       
       //we use occupied instead of piece for spaces that the piece overlaps into based on size
       occupied.forEach(function(space){
+        if(space.occupied && space.occupied.type === 0){
+          space.occupied.space = null;
+        }
         space.occupied = piece;
       });
       
@@ -242,8 +365,8 @@
   Piece.prototype.reset = function(){
     if(!this.origin) { throw 'can only reset lifted piece'; }
     
-    this.space = this.origin.space;
-    this.links = this.origin.links.slice();
+    this.space  = this.origin.space;
+    this.links  = this.origin.links.slice();
     return this.set();
   };
   
@@ -252,14 +375,15 @@
     
     var piece = this;
     
-    piece.space = piece.origin.space;
-    piece.links = piece.origin.links.slice();
+    piece.space   = piece.origin.space;
+    piece.links   = piece.origin.links.slice();
     
     var moves = piece.origin.moves;
     var dest  = piece.space, s;
     
     if(steps){
-        if(moves && moves[dir] >= steps){
+      if(moves && moves[dir] >= steps){
+          
         for(s = 0; s < steps; s++){
           dest = dest.path(dir, piece);
           if(!dest) { return null }
@@ -273,6 +397,8 @@
             piece.links.unshift(REVERSE[dir]);
           }
         }
+        
+        
       } else {
         throw 'invalid move';
       }
@@ -281,106 +407,103 @@
     return piece;
   };
   
-  exports.Board = Board;
+  function Game(players, board){
+    this.players  = players;
+    this.turn     = players[0];
+    this.board    = board || new Board(12).default();
+    this.calcControl();
+    this.countdown = 12;
+  }
+  
+  Game.prototype.kill = function(player){
+    this.players.splice(this.players.indexOf(player), 1);
+  };
+  
+  Game.prototype.restart = function(players){
+    this.players  = players;
+    this.turn     = players[0];
+    this.board.default();
+    this.calcControl();
+  };
+  
+  Game.prototype.calcControl = function(){
+    var game = this;
+    
+    game.control = {};
+    game.players.forEach(function(player){
+      game.control[player] = 0;
+    });
+    
+    game.board.pieces.forEach(function(piece){
+      if(piece.type === 0 && !piece.space){
+        delete game.control[piece.player];
+        return ;
+      }
+      
+      var moves = piece.moves();
+      return Object.keys(moves).forEach(function(dir){
+        if(game.control !== undefined){
+          game.control[piece.player] += moves[dir] * (piece.size * piece.size);
+        }
+      });
+    });
+    
+    game.controlling = game.players[0];
+    game.players.slice(1).forEach(function(player){
+      if(game.controlling === null){ return; }
+      if(game.control[player] > game.control[game.controlling]){
+        game.controlling = player;
+      } else if(game.control[player] === game.control[game.controlling]){
+        game.controlling = null;
+      }
+    });
+  };
+  
+  Game.prototype.play = function(piece){
+    var game    = this;
+    var board   = this.board;
+    var pieces  = this.board.pieces;
+    var lastControl = game.controlling;
+    
+    piece.set();
+    
+    game.control = {};
+    
+    game.calcControl();
+    
+    (function checkNextTurn(){
+      if(game.players.length > 1){
+        
+        game.turn = game.players[(game.players.indexOf(game.turn) + 1) % game.players.length];
+        
+        if(!game.control[game.turn]){
+          game.kill(game.turn);
+          return checkNextTurn();
+        }
+      }
+      
+    })();
+    
+    if(lastControl === game.controlling){
+      game.countdown--;
+    } else {
+      game.countdown = 12;
+    }
+    
+    // if(!game.countdown){
+    //   return game.controlling;
+    // }
+    
+    if(game.players.length === 1){
+      return game.players[0];
+    } else if(!game.players.length){
+      return 0;
+    }
+    return null;
+  };
+  
+  exports.Board   = Board;
+  exports.Game    = Game;
   exports.REVERSE = REVERSE;
   
-  exports.default = function(){
-    var board = new Board(12);
-    
-    function general(opts){
-      return {
-        x: opts.x || 0,
-        y: opts.y || 0,
-        dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
-        range: 1,
-        size: 1,
-        links: [],
-        player: opts.player || 1,
-        type: 0
-      };
-    }
-    
-    function titan(opts){
-      return {
-        x: opts.x || 0,
-        y: opts.y || 0,
-        dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
-        range: 1,
-        size: 2,
-        links: [],
-        player: opts.player || 1,
-        type: 1
-      };
-    }
-    
-    function ranger(opts){
-      return {
-        x: opts.x || 0,
-        y: opts.y || 0,
-        dirs: { n: true, e: true, s: true, w: true },
-        range: 12,
-        size: 1,
-        links:  opts.links || ['n'],
-        player: opts.player || 1,
-        type: 2
-      };
-    }
-    
-    function sidewinder(opts){
-      return {
-        x: opts.x || 0,
-        y: opts.y || 0,
-        dirs: { ne: true, nw: true, se: true, sw: true },
-        range: 2,
-        size: 1,
-        links:  opts.links || ['ne', 'ne'],
-        player: opts.player || 1,
-        type: 3
-      };
-    }
-    
-    function grand(opts){
-      return {
-        x: opts.x || 0,
-        y: opts.y || 0,
-        dirs: { n: true, e: true, s: true, w: true },
-        range: 4,
-        size: 1,
-        links:  opts.links || ['n', 'n', 'n', 'n'],
-        player: opts.player || 1,
-        type: 4
-      };
-    }
-    
-    
-    //generals
-    board.addPiece(general({ x: 5, y: 0,  player: 1 }));
-    board.addPiece(general({ x: 6, y: 11, player: 2 }));
-    
-    //titans
-    board.addPiece(titan({ x: 2, y: 0,  player: 1 }));
-    board.addPiece(titan({ x: 8, y: 0,  player: 1 }));
-    board.addPiece(titan({ x: 2, y: 10, player: 2 }));
-    board.addPiece(titan({ x: 8, y: 10, player: 2 }));
-    
-    //rangers
-    board.addPiece(ranger({ x: 1,   y: 1,  player: 1, links: ['n'] }));
-    board.addPiece(ranger({ x: 10,  y: 1,  player: 1, links: ['n'] }));
-    board.addPiece(ranger({ x: 1,   y: 10, player: 2, links: ['s'] }));
-    board.addPiece(ranger({ x: 10,  y: 10, player: 2, links: ['s'] }));
-    
-    //sidewinders
-    board.addPiece(sidewinder({ x: 4, y: 2, player: 1, links: ['ne', 'nw'] }));
-    board.addPiece(sidewinder({ x: 7, y: 2, player: 1, links: ['nw', 'ne'] }));
-    board.addPiece(sidewinder({ x: 4, y: 9, player: 2, links: ['se', 'sw'] }));
-    board.addPiece(sidewinder({ x: 7, y: 9, player: 2, links: ['sw', 'se'] }));
-    
-    //grands
-    board.addPiece(grand({ x: 2, y: 2, player: 1, links: ['w', 'w', 'n', 'n'] }));
-    board.addPiece(grand({ x: 9, y: 2, player: 1, links: ['e', 'e', 'n', 'n'] }));
-    board.addPiece(grand({ x: 2, y: 9, player: 2, links: ['w', 'w', 's', 's'] }));
-    board.addPiece(grand({ x: 9, y: 9, player: 2, links: ['e', 'e', 's', 's'] }));
-    
-    return board;
-  };
 })(typeof exports === 'undefined' ? this.dragon = {} : exports);
