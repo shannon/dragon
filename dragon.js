@@ -251,10 +251,10 @@
     this.addPiece(assassin({ x: 5, y: 10, player: 2 }));
     
     //titans
-    this.addPiece(titan({ x: 0,  y: 0,  player: 1 }));
-    this.addPiece(titan({ x: 10, y: 0,  player: 1 }));
-    this.addPiece(titan({ x: 0,  y: 10, player: 2 }));
-    this.addPiece(titan({ x: 10, y: 10, player: 2 }));
+    // this.addPiece(titan({ x: 0,  y: 0,  player: 1 }));
+    // this.addPiece(titan({ x: 10, y: 0,  player: 1 }));
+    // this.addPiece(titan({ x: 0,  y: 10, player: 2 }));
+    // this.addPiece(titan({ x: 10, y: 10, player: 2 }));
     
     //rangers
     this.addPiece(ranger({ x: 4, y: 0,  player: 1, links: ['e'] }));
@@ -484,15 +484,16 @@
       
     })();
     
-    if(lastControl === game.controlling){
-      game.countdown--;
+    
+    if(game.players.length && lastControl === game.controlling){
+      game.countdown -= 1 / game.players.length;
     } else {
       game.countdown = 12;
     }
     
-    // if(!game.countdown){
-    //   return game.controlling;
-    // }
+    if(!game.countdown){
+      return game.controlling;
+    }
     
     if(game.players.length === 1){
       return game.players[0];

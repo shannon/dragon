@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <script type="text/javascript">
-  angular.module('dragon.board', ['ngMaterial', 'hmTouchEvents'])
+  angular.module('dragon.board', ['ngAnimate', 'ngMaterial', 'hmTouchEvents'])
   
   .directive('dragonBoard', function($timeout){
     return {
@@ -22,13 +22,8 @@
         scope.restart = function(){
           if(scope.win || confirm('Are you sure you want to restart the game?')){
             scope.cancel();
-            
-            scope.game.board.pieces.forEach(function(piece){
-              scope.$broadcast('clear', piece);
-            });
-            
             scope.game.restart([1, 2]);
-            scope.game.board.pieces.forEach(scope.refresh);
+            
             scope.win = null;
           }
         }
@@ -39,16 +34,18 @@
         };
         
         scope.cancel = function(){
+          
           scope.game.board.spaces.forEach(function(space){
             delete space.highlight;
           });
           
           if(scope.selectedPiece && scope.selectedPiece.origin){
             scope.selectedPiece.reset();
-            scope.refresh(scope.selectedPiece);
           }
+          
           scope.selectedPiece = null;
           scope.move = null;
+          
         };
         
         scope.select = function(piece){
@@ -56,7 +53,7 @@
             scope.cancel();
             scope.selectedPiece = piece;
             scope.selectedPiece.space.area(scope.selectedPiece.size).forEach(function(_space){
-              _space.highlight = { steps: 0 };
+              _space.highlight = { steps: 0, n: 0 };
             });
             
             var origin = scope.selectedPiece.lift();
@@ -65,33 +62,25 @@
               for(var s = 0; s < origin.moves[dir]; s ++){
                 var space = scope.selectedPiece.space.adjacent(dir, (s + 1) * scope.selectedPiece.size);
                 space.area(scope.selectedPiece.size).forEach(function(_space){
-                  _space.highlight = { dir: dir, steps: s + 1 };
+                  _space.highlight = { dir: dir, steps: s + 1, n: s };
                 });
               }
             }
           }
         }
         
-        scope.refresh = function(piece){
-          var space = piece.space;
-            
-          scope.$broadcast('clear', piece);
-          scope.$broadcast('piece', piece);
-          
-          piece.links.forEach(function(dir){
-            space = space.adjacent(dir, piece.size);
-            scope.$broadcast('link', { space: space, dir: dir, piece: piece });
+        scope.refresh = function(){
+          scope.game.board.pieces.forEach(function(piece){
+            piece.style = 'transform: translate(' +
+                          (piece.space.x * scope.unitSize) + 'px, ' +
+                          (piece.space.y * scope.unitSize) + 'px)';
           });
-        };
+        }
         
         scope.$on('cancel', function(event){
           if(event.targetScope !== event.currentScope){
             scope.cancel();
           }
-        });
-          
-        $timeout(function(){
-          scope.game.board.pieces.forEach(scope.refresh);
         });
         
         (function(){ //input events
@@ -128,10 +117,21 @@
           
           $window.bind('touchstart mousedown', function(e){
             var space = getSpace(e);
-            scope.select((space && space.occupied) || scope.selectedPiece);
-            scope.drag = true;
-            cache = {};
-            scope.$apply();
+            
+            if(space){
+              if(space.highlight){
+                scope.move = space.highlight.steps && { dir: space.highlight.dir, steps: space.highlight.steps };
+                scope.selectedPiece.move(space.highlight.dir, space.highlight.steps);
+              } else {
+                scope.select(space.occupied || scope.selectedPiece);
+              }
+              
+              
+              scope.drag = true;
+              cache = {};
+              scope.$apply();
+            }
+            
           });
           
           $window.bind('touchend touchcancel mouseup', function(e){
@@ -149,13 +149,21 @@
               if(space){
                 scope.move = space.highlight.steps && { dir: space.highlight.dir, steps: space.highlight.steps };
                 scope.selectedPiece.move(space.highlight.dir, space.highlight.steps);
-                scope.refresh(scope.selectedPiece);
+                
                 e.preventDefault();
                 e.stopPropagation();
                 scope.$apply();
               }
             }
           });
+          
+          $window.bind('resize', function(){
+            scope.getUnitSize();
+            
+            scope.$apply();
+          });
+          
+          
         })();
       },
       templateUrl: 'board.tpl.html'
@@ -165,6 +173,7 @@
   .directive('dragonBoardSpace', function(){
     return {
       restrict: 'E',
+      transclude: true,
       scope: {
         space: '='
       },
@@ -289,6 +298,12 @@
       templateUrl: 'board-control.tpl.html'
     };
   })
+  
+  .filter('ceil', function() {
+    return function(value) {
+      return Math.ceil(value);
+    };
+  });
   
   ;
 </script>
@@ -443,21 +458,45 @@
   
   dragon-board-control {
     display: inline-block;
+    width: 56px;
+    height: 56px;
+  }
+  
+  dragon-board-control svg {
+    /*display: absolute;*/
+  }
+  
+  dragon-board .ng-hide-add.ng-hide-add-active,
+  dragon-board .ng-hide-remove.ng-hide-remove-active {
+    -webkit-transition: all linear 0.5s;
+    transition :all linear 0.5s;
+  }
+  
+  dragon-board .ng-hide {
+    opacity: 0;
   }
   
 </style>
 
 <template id="board.tpl.html">
   <div layout="vertical" layout-fill layout-align="center center">
-  
-    <div class="board-bar">
-      <md-button class="md-fab md-primary" aria-label="Accept move" ng-show="move" ng-click="accept()">
-        <i class="md md-check md-2x" style="transform: rotate(180deg)"></i>
-      </md-button>
-      <md-button class="md-fab" aria-label="Cancel move" ng-show="move" ng-click="cancel()">
-        <i class="md md-close md-2x"></i>
-      </md-button>
-      <div style="float: right;">
+    
+    <div class="board-bar" layout="horizontal" flex>
+    
+      <div flex>
+        <div ng-show="move && game.turn === 1">
+          <md-button class="md-primary" aria-label="Accept move"  ng-click="accept()">
+            <i class="md md-check md-2x" style="transform: rotate(180deg)"></i>
+          </md-button>
+          <md-button class="md-warn" aria-label="Cancel move" ng-click="cancel()">
+            <i class="md md-close md-2x"></i>
+          </md-button>
+        </div>
+      </div>
+      <div style="transform: rotate(180deg)">
+        <dragon-board-control game="game"></dragon-board-control>
+      </div>
+      <div flex style="text-align: right">
         <md-button class="md-fab" aria-label="Restart Game" ng-click="restart()">
           <i class="md md-refresh md-2x"></i>
         </md-button>
@@ -466,9 +505,7 @@
             ng-class="{ 'md-fullscreen': !screenfull.isFullscreen, 'md-fullscreen-exit': screenfull.isFullscreen}"></i>
         </md-button>
       </div>
-      
     </div>
-    
     
     <div class="field" turn="{{win || game.turn}}">
       <div class="win" ng-show="win" layout="vertical" layout-fill layout-align="center center">
@@ -479,36 +516,65 @@
           <div layout="horizontal" ng-repeat="row in game.board.rows track by $index" class="dragon-row" flex>
             <dragon-board-space ng-repeat="space in row track by $index" space="space" flex
               ng-class="{ highlight: !!space.highlight }">
+              
             </dragon-board-space>
           </div>
+          <dragon-board-piece ng-repeat="piece in game.board.pieces track by $index" piece="piece" board="game.board">
+          </dragon-board-piece>
         </div>
       </div>
     </div>
     
-    <div class="board-bar" style="text-align: right">
-      <dragon-board-control game="game" style="float:left"></dragon-board-control>
-      <md-button class="md-fab" aria-label="Cancel move" ng-show="move" ng-click="cancel()">
-        <i class="md md-close md-2x"></i>
-      </md-button>
-      <md-button class="md-fab md-primary" aria-label="Accept move" ng-show="move" ng-click="accept()">
-        <i class="md md-check md-2x"></i>
-      </md-button>
+    <div class="board-bar" layout="horizontal" flex>
+      <div flex></div>
+      <div>
+        <dragon-board-control game="game"></dragon-board-control>
+      </div>
+      <div flex style="text-align: right">
+        <div ng-show="move  && game.turn === 2">
+          <md-button class="md-warn" aria-label="Cancel move"  ng-click="cancel()">
+            <i class="md md-close md-2x"></i>
+            </md-button>
+            <md-button class="md-primary" aria-label="Accept move" ng-click="accept()">
+              <i class="md md-check md-2x"></i>
+            </md-button>
+        </div>
+      </div>
+      
     </div>
     
   </div>
+  
+  <svg>
+    <defs>
+      <filter id="svg-shadow">
+        <feOffset result="offOut" in="SourceAlpha" dx="1" dy="3">
+          <!--<animate attributeName="dx" dur="1s" from="0" to="1" />-->
+          <!--<animate attributeName="dy" dur="1s" from="0" to="3" />-->
+        </feOffset>
+        <feGaussianBlur result="blurOut" in="offOut" stdDeviation="2" />
+        <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
+      </filter>
+    </defs>
+  </svg>
 </template>
 
 <template id="board-space.tpl.html">
-  <dragon-board-piece ng-if="piece" piece="piece"></dragon-board-piece>
-  <dragon-board-link ng-if="link" link="link"></dragon-board-link>
+  <ng-transclude></ng-transclude>
+  <!--<dragon-board-piece ng-if="piece" piece="piece"></dragon-board-piece>-->
+  <!--<dragon-board-link ng-if="link" link="link"></dragon-board-link>-->
 </template>
 
 <template id="board-piece.tpl.html">
-  <svg ng-attr-height="{{piece.size * 100}}%" ng-attr-width="{{piece.size * 100}}%" viewbox="0 0 100 100"
-    class="player-{{piece.player}}">
-    <circle cx="50" cy="50" r="45" class="primary" />
-    <circle cx="50" cy="50" r="30" class="secondary" ng-if="piece.type !== 0"/>
-    <path ng-attr-d="{{::star}}" class="secondary" ng-if="piece.type === 0" />
+  <svg height="100%" width="100%" viewbox="0 0 100 100"
+    class="player-{{piece.player}}" >
+    
+    <g filter="url(#svg-shadow)" ng-attr-transform="translate({{piece.space.x * 100 / 12}} {{piece.space.y * 100/12}}) scale({{1/12}} {{1/12}})">
+      <circle cx="50" cy="50" r="45" class="primary" />
+      <circle cx="50" cy="50" r="30" class="secondary" ng-if="piece.type !== 0"/>
+      <path ng-attr-d="{{::star}}" class="secondary" ng-if="piece.type === 0" />
+    </g>
+    
   </svg>
 </template>
 
@@ -525,20 +591,17 @@
 </template>
 
 <template id="board-control.tpl.html">
-  <svg width="56" height="56" style="position: absolute;">
+  <svg width="56" height="56">
     <circle cx="28" cy="28" r="28" class="player-{{game.players[0]}} primary" />
     <path ng-repeat="p in game.players.slice(1)" ng-attr-d="{{pie(p)}}" class="player-{{p}} primary" stroke="white"></path>
     
     <g ng-if="game.controlling">
       <circle cx="28" cy="28" r="15" class="player-{{game.controlling}} primary" stroke="white" stroke-width="3" />
-      <text x="28" y="34" text-anchor="middle" fill="white">{{game.countdown}}</text>
+      <text x="28" y="34" text-anchor="middle" fill="white">{{game.countdown | ceil}}</text>
     </g>
     
     <g ng-if="game.controlling === null">
       <circle cx="28" cy="28" r="15" fill="white" stroke="white" stroke-width="3" />
     </g>
-    
   </svg>
-  <md-button class="md-fab" disabled></md-button>
-  
 </template>

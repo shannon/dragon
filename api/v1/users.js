@@ -3,47 +3,31 @@
 const koa     = require('koa')
     , mount   = require('koa-mount')
     , Router  = require('koa-router')
+    , Q       = require('q')
     , User    = require('../../models/user')
     , app     = koa()
+    , google  = require('googleapis')
 ;
 
 var router = new Router();
 
 router.get('/user', function *(next){
-  this.body = this.req.user;
+  this.body = yield Q.ninvoke(this.api.plus.people, 'get', { userId: 'me' }).spread(function(results){
+    return results;
+  }).catch(this.api.error);
 });
 
 router.get('/user/friends', function *(next){
-  this.body = yield this.req.user.populateQ('friends').thenResolve(this.req.user.friends);
+  this.body = yield Q.ninvoke(this.api.plus.people, 'list', { userId: 'me', collection: 'visible' }).spread(function(results){
+    return results.items;
+  }).catch(this.api.error);
 });
 
-// POST /friends
-router.post('/user/friends', function *(next){
-  if(!this.query.username){
-    return this.throw('you must specify a username', 406);
-  }
-  var user = yield User.findOneQ({ 'profile.username': this.req.query.username });
-  if(!user){
-    return this.throw('user not found', 404);
-  } else {
-    yield this.req.user.updateQ({ $addToSet: { friends: user._id } });
-    this.body = user;
-  }
-});
 
-// DELETE /friends/:username
-router.delete('/user/friends/:username', function *(next){
-  var user = yield User.findOneQ({ 'profile.username': this.params.username });
-  if(!user){
-    return this.throw('user not found', 404);
-  } else {
-    yield this.req.user.updateQ({ $pull: { friends: user._id } });
-    this.body = 'friend removed';
-  }
-});
-
-router.get('/users/:username', function *(next){
-  this.body = yield User.find({ 'profile.username': this.params.username }).execQ();
+router.get('/user/friends/:friend', function *(next){
+  this.body = yield Q.ninvoke(this.api.plus.people, 'get', { userId: this.params.friend }).spread(function(results){
+    return results;
+  }).catch(this.api.error);
 });
 
 app.use(mount(router.middleware()));

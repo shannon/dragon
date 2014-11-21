@@ -1,5 +1,5 @@
 angular.module( 'dragon', [
-  'dragon.api.v1',
+  // 'dragon.api.v1',
   'dragon.error',
   'dragon.welcome',
   'dragon.home',

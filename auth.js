@@ -15,7 +15,7 @@ passport.use(new GoogleStrategy({
     callbackURL:  process.env.OAUTH_RETURN +'/auth/google/callback'
   },
   function(accessToken, refreshToken, profile, done) {
-    User.signIn('google', profile.id , profile.displayName, profile.emails[0].value, profile._json.picture).then(function(user){
+    User.signIn(profile.id, 'google', accessToken, refreshToken).then(function(user){
       done(null, user);
     }).catch(function(error){
       return done(error, false);
@@ -28,7 +28,7 @@ passport.serializeUser(function(user, done) {
 });
 
 passport.deserializeUser(function(id, done) {
-  User.findById(id).select('+private +friends').exec(function(err, user){
+  User.findById(id, function(err, user){
     done(err, user);
   });
 });
@@ -38,9 +38,10 @@ var auth = new Router();
 // Google OAUTH2 //////////////////////////////////////////////////////
 auth.get('/google', passport.authenticate('google', {
   scope: [
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/userinfo.email'
-  ]
+    'https://www.googleapis.com/auth/plus.login',
+    'https://www.googleapis.com/auth/games'
+  ],
+  accessType: 'offline'
 }));
 
 auth.get('/google/callback', passport.authenticate('google', { successRedirect:'/', failureRedirect: '/' }));

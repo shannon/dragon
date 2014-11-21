@@ -6,16 +6,10 @@ angular.module('dragon.api.v1.users', [
   function($resource, $http, ApiConfig) {
     
     return $resource(ApiConfig.base + '/user').$subresource({
-      Friend: $resource(ApiConfig.base + '/user/friends/:username', { username: '@profile.username' })
+      Friend: $resource(ApiConfig.base + '/user/friends/:friend', { friend: '@id' })
     });
     
   }
 ])
-
-.factory('User', ['$resource', 'ApiConfig', function($resource, ApiConfig) {
-  return $resource(ApiConfig.base + '/users/:user', { user: '@profile.username' }, {
-    //search: { method: 'GET', isArray: true, url: ApiConfig.base + '/search/users' }
-  });
-}])
 
 ;
