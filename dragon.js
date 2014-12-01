@@ -70,6 +70,7 @@
       x: opts.x || 0,
       y: opts.y || 0,
       dirs: { ne: true, nw: true, se: true, sw: true },
+      //dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
       range: 2,
       size: 1,
       links:  opts.links || ['ne', 'ne'],
@@ -83,6 +84,7 @@
       x: opts.x || 0,
       y: opts.y || 0,
       dirs: { n: true, e: true, s: true, w: true },
+      //dirs: { n: true, e: true, s: true, w: true, ne: true, nw: true, se: true, sw: true },
       range: 4,
       size: 1,
       links:  opts.links || ['n', 'n', 'n', 'n'],
@@ -236,10 +238,6 @@
   
   Board.prototype.default = function(){
     
-    this.pieces.forEach(function(piece){
-      if(!piece.origin) piece.lift();
-    });
-    
     this.pieces.length = 0;
     
     //generals
@@ -251,10 +249,10 @@
     this.addPiece(assassin({ x: 5, y: 10, player: 2 }));
     
     //titans
-    // this.addPiece(titan({ x: 0,  y: 0,  player: 1 }));
-    // this.addPiece(titan({ x: 10, y: 0,  player: 1 }));
-    // this.addPiece(titan({ x: 0,  y: 10, player: 2 }));
-    // this.addPiece(titan({ x: 10, y: 10, player: 2 }));
+    this.addPiece(titan({ x: 0,  y: 0,  player: 1 }));
+    this.addPiece(titan({ x: 10, y: 0,  player: 1 }));
+    this.addPiece(titan({ x: 0,  y: 10, player: 2 }));
+    this.addPiece(titan({ x: 10, y: 10, player: 2 }));
     
     //rangers
     this.addPiece(ranger({ x: 4, y: 0,  player: 1, links: ['e'] }));
@@ -262,7 +260,7 @@
     this.addPiece(ranger({ x: 4, y: 11, player: 2, links: ['e'] }));
     this.addPiece(ranger({ x: 7, y: 11, player: 2, links: ['w'] }));
     
-    //sidewinders
+    // //sidewinders
     this.addPiece(sidewinder({ x: 5, y: 2, player: 1, links: ['nw', 'nw'] }));
     this.addPiece(sidewinder({ x: 6, y: 2, player: 1, links: ['ne', 'ne'] }));
     this.addPiece(sidewinder({ x: 5, y: 9, player: 2, links: ['sw', 'sw'] }));
@@ -316,6 +314,12 @@
     var space   = piece.space;
     var spaces  = [space], link = space;
     
+    this.board.spaces.forEach(function(space){
+      if(space.occupied === this){
+        space.occupied = null;
+      }
+    }, this);
+    
     //scan space area and all link areas
     for(var l = 0; l < piece.links.length; l++){
       link = link.adjacent(piece.links[l], piece.size);
@@ -337,48 +341,16 @@
         }
         space.occupied = piece;
       });
-      
-      this.origin = null;
     }
     
     return valid && piece;
   };
   
-  Piece.prototype.lift = function(){
-    if(this.origin) { throw 'already lifted'; }
-    
-    this.origin = {
-      space: this.space,
-      links: this.links.slice(),
-      moves: this.moves()
-    };
-    
-    this.board.spaces.forEach(function(space){
-      if(space.occupied === this){
-        space.occupied = null;
-      }
-    }, this);
-    
-    return this.origin;
-  };
-  
-  Piece.prototype.reset = function(){
-    if(!this.origin) { throw 'can only reset lifted piece'; }
-    
-    this.space  = this.origin.space;
-    this.links  = this.origin.links.slice();
-    return this.set();
-  };
-  
   Piece.prototype.move = function(dir, steps){
-    if(!this.origin) { return 'can only move lifted piece'; }
     
     var piece = this;
     
-    piece.space   = piece.origin.space;
-    piece.links   = piece.origin.links.slice();
-    
-    var moves = piece.origin.moves;
+    var moves = piece.moves();
     var dest  = piece.space, s;
     
     if(steps){
@@ -404,7 +376,7 @@
       }
     }
     
-    return piece;
+    return piece.set();
   };
   
   function Game(players, board){
@@ -459,13 +431,11 @@
     });
   };
   
-  Game.prototype.play = function(piece){
+  Game.prototype.play = function(){
     var game    = this;
     var board   = this.board;
     var pieces  = this.board.pieces;
     var lastControl = game.controlling;
-    
-    piece.set();
     
     game.control = {};
     
