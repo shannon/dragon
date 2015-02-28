@@ -1,0 +1,47 @@
+{
+  "version": "0.0.1",
+  "rules": "0.0.1",
+  "players": [1, 2],
+  "board":    12,
+  "types": [
+    { "size": 1, "range": 1,  "links": 0, "dirs": ["n", "e", "s", "w", "ne", "nw", "se", "sw"]},
+    { "size": 1, "range": 12, "links": 0, "dirs": ["n", "e", "s", "w", "ne", "nw", "se", "sw"]},
+    { "size": 2, "range": 1,  "links": 0, "dirs": ["n", "e", "s", "w", "ne", "nw", "se", "sw"]},
+    { "size": 1, "range": 12, "links": 1, "dirs": ["n", "e", "s", "w"] },
+    { "size": 1, "range": 2,  "links": 2, "dirs": ["ne", "nw", "se", "sw"] },
+    { "size": 1, "range": 4,  "links": 4, "dirs": ["n", "e", "s", "w"] }
+  ],
+  "pieces": [
+    { "type": 0, "x": 6,  "y": 10,  "player": 0 },
+    { "type": 0, "x": 5,  "y": 1,   "player": 1 },
+    { "type": 1, "x": 5,  "y": 10,  "player": 0 },
+    { "type": 1, "x": 6,  "y": 1,   "player": 1 },
+    { "type": 2, "x": 0,  "y": 10,  "player": 0 },
+    { "type": 2, "x": 10, "y": 10,  "player": 0 },
+    { "type": 2, "x": 0,  "y": 0,   "player": 1 },
+    { "type": 2, "x": 10, "y": 0,   "player": 1 },
+    { "type": 3, "x": 4,  "y": 11,  "player": 0, "links": ["e"] },
+    { "type": 3, "x": 7,  "y": 11,  "player": 0, "links": ["w"] },
+    { "type": 3, "x": 4,  "y": 0,   "player": 1, "links": ["e"] },
+    { "type": 3, "x": 7,  "y": 0,   "player": 1, "links": ["w"] },
+    { "type": 4, "x": 5,  "y": 9,   "player": 0, "links": ["sw", "sw"] },
+    { "type": 4, "x": 6,  "y": 9,   "player": 0, "links": ["se", "se"] },
+    { "type": 4, "x": 5,  "y": 2,   "player": 1, "links": ["nw", "nw"] },
+    { "type": 4, "x": 6,  "y": 2,   "player": 1, "links": ["ne", "ne"] },
+    { "type": 5, "x": 4,  "y": 9,   "player": 0, "links": ["w", "s", "w", "s"] },
+    { "type": 5, "x": 7,  "y": 9,   "player": 0, "links": ["e", "s", "e", "s"] },
+    { "type": 5, "x": 4,  "y": 2,   "player": 1, "links": ["w", "n", "w", "n"] },
+    { "type": 5, "x": 7,  "y": 2,   "player": 1, "links": ["e", "n", "e", "n"] }
+  ],
+  "surrender": { "threshold": 0.66, "turns": 12 },
+  
+  "turn":     0,
+  "moves":    [],
+  "control":  [],
+  "winner":   null,
+  "created":  null,
+  "modified": null,
+  "metadata": {
+    "title": "untitled game"
+  }
+}

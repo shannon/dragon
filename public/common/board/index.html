@@ -34,7 +34,8 @@
     return {
       restrict: 'E',
       scope: {
-        game: '='
+        game: '=',
+        static: '='
       },
       link: function(scope, elem, attrs){
         var $window = angular.element(window);
@@ -104,7 +105,7 @@
             var links = piece.links.slice();
             var frames = {};
             
-            piece.space.highlight = { steps: 0, size: piece.size };
+            piece.space.highlight = { steps: 0, size: piece.type.size };
             
             for(var dir in moves){
               links = piece.links.slice();
@@ -116,8 +117,8 @@
               
               for(var s = 0; s < moves[dir]; s ++){
                 
-                var space = piece.space.adjacent(dir, (s + 1) * piece.size);
-                space.highlight = { dir: dir, steps: s + 1, size: piece.size };
+                var space = piece.space.adjacent(dir, (s + 1) * piece.type.size);
+                space.highlight = { dir: dir, steps: s + 1, size: piece.type.size };
                 
                 if(links.length){
                   links.unshift(dragon.REVERSE[dir]);
@@ -267,7 +268,7 @@
           var offset = { x: 0, y: 0 }, unit;
           
           if(scope.$board.selection.piece === scope.piece && scope.$board.selection.move.steps){
-            unit = scope.$board.selection.piece.size * scope.$board.selection.move.steps;
+            unit = scope.$board.selection.piece.type.size * scope.$board.selection.move.steps;
             offset.x = -Math.cos(CARDINAL_VECTORS[scope.$board.selection.move.dir].a * (Math.PI / 180)) * unit;
             offset.y =  Math.sin(CARDINAL_VECTORS[scope.$board.selection.move.dir].a * (Math.PI / 180)) * unit;
             
@@ -424,9 +425,13 @@
     user-select: none;
   }
   
+  dragon-board .static {
+    pointer-events: none;
+  }
+  
   dragon-board .board-bar{
     width: 100%;
-    max-width: 600px;
+    max-width: 500px;
     padding: 5px;
     height: 70px;
   }
@@ -439,7 +444,7 @@
     position: relative;
     border-radius: 10px;
     width: 100%;
-    max-width: 600px;
+    max-width: 500px;
     z-index: 0;
   }
   
@@ -481,7 +486,6 @@
       background-size: 150%;
     }
   }
-  
   
   
   dragon-board .field .highlight:after {
@@ -581,8 +585,6 @@
     -moz-animation-delay: 1.2s;
     animation-delay: 1.2s;
   }
-  
-  
   
   dragon-board .field[turn="1"] .highlight:after {
     background-image:
@@ -696,74 +698,67 @@
     /*display: absolute;*/
   }
   
-  dragon-board .ng-hide-add.ng-hide-add-active,
-  dragon-board .ng-hide-remove.ng-hide-remove-active {
-    -webkit-transition: all linear 0.5s;
-    transition :all linear 0.5s;
-  }
-  
-  dragon-board .ng-hide {
-    opacity: 0;
-  }
-  
 </style>
 
 <template id="board.tpl.html">
-  <div layout="vertical" layout-fill layout-align="center center">
+  <div layout="column" layout-fill layout-align="center center" ng-class="{ static: static }">
     
-    <div class="board-bar" layout="horizontal" flex>
+    <div class="board-bar" layout="row" hide show-sm ng-hide="static">
     
-      <div flex>
-        <div ng-show="selection.move && game.turn === 1">
-          <md-button class="md-primary" aria-label="Accept move"  ng-click="accept()">
+      <div>
+        <div>
+          <md-button class="md-primary" aria-label="Accept move" ng-click="accept()"
+            ng-disabled="!selection.move || !selection.move.steps">
             <i class="md md-check md-2x" style="transform: rotate(180deg)"></i>
           </md-button>
-          <md-button class="md-warn" aria-label="Cancel move" ng-click="cancel()">
+          <md-button class="md-warn" aria-label="Cancel move" ng-click="cancel()"
+            ng-disabled="!selection.move || !selection.move.steps">
             <i class="md md-close md-2x"></i>
           </md-button>
         </div>
       </div>
-      <div style="transform: rotate(180deg)">
-        <dragon-board-control game="game"></dragon-board-control>
+      <div style="transform: rotate(180deg)" flex>
+        <!--<dragon-board-control game="game"></dragon-board-control>-->
       </div>
-      <div flex style="text-align: right">
-        <md-button class="md-fab" aria-label="Restart Game" ng-click="restart()">
-          <i class="md md-refresh md-2x"></i>
-        </md-button>
-        <md-button class="md-fab" aria-label="Full Screen" ng-click="fullscreen()">
-          <i class="md md-fullscreen md-2x"
-            ng-class="{ 'md-fullscreen': !screenfull.isFullscreen, 'md-fullscreen-exit': screenfull.isFullscreen}"></i>
-        </md-button>
-      </div>
+      <!--<div flex style="text-align: right">-->
+      <!--  <md-button class="md-fab" aria-label="Restart Game" ng-click="restart()">-->
+      <!--    <i class="md md-refresh md-2x"></i>-->
+      <!--  </md-button>-->
+      <!--  <md-button class="md-fab" aria-label="Full Screen" ng-click="fullscreen()">-->
+      <!--    <i class="md md-fullscreen md-2x"-->
+      <!--      ng-class="{ 'md-fullscreen': !screenfull.isFullscreen, 'md-fullscreen-exit': screenfull.isFullscreen}"></i>-->
+      <!--  </md-button>-->
+      <!--</div>-->
     </div>
     
-    <div class="field" turn="{{win || game.turn}}">
-      <div class="win" ng-show="win" layout="vertical" layout-fill layout-align="center center">
+    <div class="field" turn="{{win || game.turn + 1}}">
+      <div class="win" ng-show="win" layout="column" layout-fill layout-align="center center">
         <span class="label">Player {{win}} Wins!</span>
       </div>
       <div class="grid">
-        <div layout="vertical">
-          <div layout="horizontal" ng-repeat="row in game.board.rows track by $index" class="dragon-row" flex>
+        <div layout="column">
+          <div layout="row" ng-repeat="row in game.board.rows track by $index" class="dragon-row" flex>
             <div class="space" size="{{space.highlight.size}}" steps="{{space.highlight.steps}}" ng-class="{ highlight: !!space.highlight }" ng-repeat="space in row track by $index" space="space" flex>
             </div>
           </div>
-          <dragon-board-piece ng-repeat="piece in game.board.pieces track by $index" $board="this" piece="piece">
+          <dragon-board-piece ng-repeat="piece in game.pieces track by $index" $board="this" piece="piece">
           </dragon-board-piece>
         </div>
       </div>
     </div>
     
-    <div class="board-bar" layout="horizontal" flex>
-      <div flex></div>
-      <div>
-        <dragon-board-control game="game"></dragon-board-control>
+    <div class="board-bar" layout="row" ng-hide="static">
+      <div flex>
+        <!--<dragon-board-control game="game"></dragon-board-control>-->
       </div>
-      <div flex style="text-align: right">
-        <div ng-show="selection.move && game.turn === 2">
-          <md-button class="md-warn" aria-label="Cancel move"  ng-click="cancel()">
+      <div style="text-align: right">
+        <div>
+          <md-button class="md-warn" aria-label="Cancel move"  ng-click="cancel()"
+            ng-disabled="!selection.move || !selection.move.steps">
             <i class="md md-close md-2x"></i>
           </md-button>
-          <md-button class="md-primary" aria-label="Accept move" ng-click="accept()">
+          <md-button class="md-primary" aria-label="Accept move" ng-click="accept()"
+            ng-disabled="!selection.move || !selection.move.steps">
             <i class="md md-check md-2x"></i>
           </md-button>
         </div>
@@ -809,18 +804,18 @@
 </template>
 
 <template id="board-piece.tpl.html">
-  <svg height="100%" width="100%" viewbox="0 0 100 100" class="player-{{::piece.player}}" >
+  <svg height="100%" width="100%" viewbox="0 0 100 100" class="player-{{::piece.player + 1}}" >
     
     <!--ng-attr-filter="url(#svg-shadow-{{game.turn === piece.player ? 'raise': 'lower'}})"-->
     <g ng-attr-transform="{{getTransform()}}">
     
-      <g ng-attr-transform="scale({{::piece.size}} {{::piece.size}})">
+      <g ng-attr-transform="scale({{::piece.type.size}} {{::piece.type.size}})">
         
         <svg dragon-board-links $board="::$board" piece="::piece" index="::0" ng-if="::piece.links[0]"></svg>
         
         <circle cx="50" cy="50" r="45" class="primary" />
-        <circle cx="50" cy="50" r="30" class="secondary" ng-if="::piece.type !== 0"/>
-        <path ng-attr-d="{{::star}}" class="secondary" ng-if="::piece.type === 0" />
+        <circle cx="50" cy="50" r="30" class="secondary" ng-if="::piece.type.index !== 0"/>
+        <path ng-attr-d="{{::star}}" class="secondary" ng-if="::piece.type.index === 0" />
         
       </g>
     </g>
@@ -841,6 +836,12 @@
 </template>
 
 <template id="board-control.tpl.html">
+  <div class="player-{{::game.players[0]}} primary" style="width: 100%; height: 25px; background: #ff0">
+    
+  </div>
+</template>
+
+<template id="x-board-control.tpl.html">
   <svg width="56" height="56">
     <circle cx="28" cy="28" r="28" class="player-{{::game.players[0]}} primary" />
     <path ng-repeat="p in game.players.slice(1)" ng-attr-d="{{pie(p)}}" class="player-{{p}} primary" stroke="white"></path>

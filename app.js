@@ -53,6 +53,8 @@ mongoose.connect('mongodb://' + (process.env.MONGO_HOST || 'mongo') + '/' + (pro
     this.body = fs.readFileSync(__dirname + '/dragon.js');
   });
   
+  app.use(mount('/default-games', serve(__dirname + '/default-games')));
+  
   app.use(serve(__dirname + '/public'));
   
   app.use(mount('/auth', auth));

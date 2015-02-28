@@ -1,0 +1,41 @@
+<script>
+  angular.module( 'dragon.game', [
+    'ui.router'
+  ])
+  
+  .config(function($stateProvider, $urlRouterProvider, $locationProvider){
+    
+    $stateProvider.state('app.game', {
+      url: ':game',
+      
+      resolve: {
+        game: ['$stateParams', '$q', 'games', function($stateParams, $q, games){
+          
+          for(var i = 0; i < games.length; i++){
+            if(games[i]._id === $stateParams.game){
+              return games[i]
+            }
+          }
+          
+          return $q.reject('not found');
+        }]
+      },
+      views: {
+        content: {
+          controller: 'GameCtrl',
+          templateUrl: 'game.tpl.html',
+        }
+      }
+    });
+    
+  })
+  
+  .controller('GameCtrl', function($scope, $mdBottomSheet, $cookies, game){
+    $scope.game = game;
+  })
+  ;
+</script>
+
+<template id="game.tpl.html">
+  <dragon-board game="game"></dragon-board>
+</template>
